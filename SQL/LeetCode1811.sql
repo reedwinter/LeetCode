@@ -98,53 +98,17 @@
 ---  for each contest are given in another table.
 ---
 -----------------------------------------------------------------------
-WITH User_Medals
-AS
+with a as 
 (
-    SELECT 
-        contest_id, medal, user_id
-    FROM 
-    (
-       SELECT contest_id, gold_medal, silver_medal, bronze_medal
-       FROM Contests
-    ) p  
-    UNPIVOT  
-    (
-        user_id FOR medal IN   
-        (gold_medal, silver_medal, bronze_medal)  
-    )AS unpvt
+select *, rank() over (partition by user_id order by contest_id) as rn
+from users u  left join contests c 
+on user_id  in (gold_medal,silver_medal ,bronze_medal)
 )
-SELECT 
-    DISTINCT
-    B.name,
-	B.mail
-FROM
-(	
-    SELECT 
-        user_id
-    FROM
-    (
-        SELECT 
-            user_id,
-            contest_id - row_number() over (partition by user_id order by contest_id) AS diff
-        FROM 
-            User_Medals
-    ) AS T
-    GROUP BY user_id, diff
-    HAVING 
-        COUNT(*) >= 3
-    UNION ALL
-    SELECT 
-        user_id
-    FROM 
-        User_Medals
-    WHERE 
-        medal = 'gold_medal'
-    GROUP BY user_id
-    HAVING 
-        COUNT(*) >= 3
-) AS A
-INNER JOIN Users AS B
-ON 
-   A.user_id = B.user_id
-;
+
+select name,mail from a 
+group by user_id
+having sum(gold_medal=user_id)>=3
+union 
+select   name,mail from a 
+group by user_id, contest_id-rn
+having count(*)>=3
